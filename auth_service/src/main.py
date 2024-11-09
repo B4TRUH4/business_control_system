@@ -34,3 +34,15 @@ def create_fastapi_app() -> FastAPI:
 
 
 app = create_fastapi_app()
+
+
+@app.exception_handler(ServiceException)
+async def service_exception_handler(request: Request, exc: ServiceException):
+    return JSONResponse(
+        content=ErrorResponse(
+            status=exc.status_code,
+            message=exc.message,
+        ).model_dump(),
+        status_code=exc.status_code,
+        headers=exc.headers,
+    )
