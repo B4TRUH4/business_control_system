@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel
 from starlette.status import HTTP_200_OK, HTTP_201_CREATED
 
@@ -15,4 +17,4 @@ class BaseCreateResponse(BaseResponse):
 class ErrorResponse(BaseModel):
     status: int
     error: bool = True
-    message: str = 'Something went wrong'
+    message: Any = 'Something went wrong'

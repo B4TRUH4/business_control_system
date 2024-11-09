@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 
 class AccountID(BaseModel):
@@ -6,7 +6,7 @@ class AccountID(BaseModel):
 
 
 class BaseAccount(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class AccountDB(BaseAccount, AccountID):

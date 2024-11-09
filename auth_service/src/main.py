@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
+from starlette import status
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -42,6 +44,27 @@ async def service_exception_handler(request: Request, exc: ServiceException):
         content=ErrorResponse(
             status=exc.status_code,
             message=exc.message,
+        ).model_dump(),
+        status_code=exc.status_code,
+        headers=exc.headers,
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        content=ErrorResponse(
+            status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            message=exc.errors(),
+        ).model_dump(),
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        content=ErrorResponse(
+            status=exc.status_code,
+            message=exc.detail,
         ).model_dump(),
         status_code=exc.status_code,
         headers=exc.headers,
