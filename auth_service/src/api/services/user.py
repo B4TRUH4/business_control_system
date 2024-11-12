@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, BackgroundTasks
 
 from src.api.exceptions import (
     CredentialException,
@@ -12,6 +12,7 @@ from src.api.exceptions import (
     NotEnoughRightsException,
 )
 from src.models import User, Account
+from src.utils.email_sender import send_email
 from src.utils.invite import generate_invite_token
 from src.utils.jwt_utils import oauth2_scheme, retrieve_token_data
 from src.utils.service import BaseService
@@ -33,7 +34,11 @@ class UserService(BaseService):
 
     @transaction_mode
     async def invite_user(
-        self, email: str, user_id: int, admin_company_id: int
+        self,
+        email: str,
+        user_id: int,
+        admin_company_id: int,
+        background_tasks: BackgroundTasks,
     ) -> None:
         if not await self.uow.member.get_by_query_one_or_none(
             user_id=user_id, company_id=admin_company_id
@@ -43,8 +48,17 @@ class UserService(BaseService):
         if account:
             raise AccountAlreadyExistsException
         invite_token = generate_invite_token()
-        return await self.uow.invite.add_one_and_get_obj(
+        await self.uow.invite.add_one_and_get_obj(
             email=email, invite_token=invite_token, user_id=user_id
+        )
+        background_tasks.add_task(
+            send_email,
+            template_name='invitation.html',
+            receiver=email,
+            subject='Приглашение в компанию',
+            data={
+                'invite_token': invite_token,
+            },
         )
 
     @transaction_mode
@@ -77,7 +91,7 @@ class UserService(BaseService):
 
     @transaction_mode
     async def delete_email(
-        self, user_id: int, email: str, admin_company_id: int | None
+        self, user_id: int, email: str, admin_company_id: int | None = None
     ) -> None:
         if admin_company_id:
             await self._check_admin_and_user_in_one_company(
@@ -97,7 +111,11 @@ class UserService(BaseService):
 
     @transaction_mode
     async def add_email(
-        self, user_id: int, email: str, admin_company_id: int | None
+        self,
+        user_id: int,
+        email: str,
+        background_tasks: BackgroundTasks,
+        admin_company_id: int | None = None,
     ) -> None:
         if admin_company_id:
             await self._check_admin_and_user_in_one_company(
@@ -107,8 +125,17 @@ class UserService(BaseService):
         if account:
             raise AccountAlreadyExistsException
         invite_token = generate_invite_token()
-        return await self.uow.invite.add_one_and_get_obj(
+        await self.uow.invite.add_one_and_get_obj(
             email=email, invite_token=invite_token, user_id=user_id
+        )
+        background_tasks.add_task(
+            send_email,
+            template_name='add_email.html',
+            receiver=email,
+            subject='Подтверждение почты',
+            data={
+                'confirmation_link': f'http://localhost:8000/api/users/confirm_email?email={email}&token={invite_token}'
+            },
         )
 
     @transaction_mode

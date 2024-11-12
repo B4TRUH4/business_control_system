@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from starlette import status
 
@@ -22,8 +22,11 @@ router = APIRouter(prefix='/auth')
 async def sign_up(
     account: Annotated[BaseAccount, Depends()],
     service: Annotated[AuthService, Depends()],
+    background_tasks: BackgroundTasks,
 ) -> BaseCreateResponse:
-    await service.sign_up(**account.model_dump())
+    await service.sign_up(
+        **account.model_dump(), background_tasks=background_tasks
+    )
     return BaseCreateResponse()
 
 

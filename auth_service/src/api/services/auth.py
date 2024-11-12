@@ -1,5 +1,5 @@
 from datetime import timedelta
-
+from starlette.background import BackgroundTasks
 
 from src.api.exceptions import (
     InviteNotFoundException,
@@ -8,6 +8,7 @@ from src.api.exceptions import (
 )
 from src.config import jwt_settings
 from src.models import Invite, Account, User, Company
+from src.utils.email_sender import send_email
 from src.utils.invite import generate_invite_token
 from src.utils.jwt_utils import (
     create_access_token,
@@ -21,10 +22,21 @@ class AuthService(BaseService):
     base_repository = 'account'
 
     @transaction_mode
-    async def sign_up(self, email: str) -> None:
+    async def sign_up(
+        self, email: str, background_tasks: BackgroundTasks
+    ) -> None:
         await self._check_account_is_free(email=email)
         invite_token = generate_invite_token()
         await self.uow.invite.add_one(email=email, invite_token=invite_token)
+        background_tasks.add_task(
+            send_email,
+            template_name='sign_up.html',
+            receiver=email,
+            subject='Подтверждение регистрации',
+            data={
+                'invite_token': invite_token,
+            },
+        )
 
     @transaction_mode
     async def sign_up_complete(
@@ -94,7 +106,6 @@ class AuthService(BaseService):
     @transaction_mode
     async def check_account(self, email: str) -> None:
         await self._check_account_is_free(email=email)
-        # TODO: генерировать инвайт на почту
 
     async def _check_account_is_free(self, **kwargs):
         account = await self.uow.account.get_by_query_one_or_none(**kwargs)
