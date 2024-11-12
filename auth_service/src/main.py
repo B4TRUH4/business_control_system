@@ -22,7 +22,6 @@ def create_fastapi_app() -> FastAPI:
             version=VERSION,
             docs_url=None,
             redoc_url=None,
-
         )
     else:
         fastapi_app = FastAPI(
@@ -49,8 +48,11 @@ async def service_exception_handler(request: Request, exc: ServiceException):
         headers=exc.headers,
     )
 
+
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+):
     return JSONResponse(
         content=ErrorResponse(
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -58,6 +60,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         ).model_dump(),
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
     )
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
