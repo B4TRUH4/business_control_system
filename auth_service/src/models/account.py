@@ -19,7 +19,9 @@ class Account(Base):
     user: Mapped['User'] = relationship(
         secondary='secret', back_populates='accounts'
     )
-    secret: Mapped['Secret'] = relationship()
+    secret: Mapped['Secret'] = relationship(
+        cascade='all, delete-orphan',
+    )
 
     def to_pydantic_schema(self) -> AccountDB:
         return AccountDB(**self.__dict__)
