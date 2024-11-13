@@ -1,0 +1,33 @@
+version: "3"
+
+services:
+  auth_service:
+    restart: unless-stopped
+    build:
+      context: ./auth_service
+      dockerfile: ./Dockerfile
+    depends_on:
+      auth_db:
+        condition: service_healthy
+    command: sh -c "fastapi dev src/main.py  --host='0.0.0.0' --port=8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./auth_service:/auth_service
+    env_file:
+      - ./auth_service/.env
+
+  auth_db:
+    restart: unless-stopped
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./auth_service/pg-data:/var/lib/postgresql/data
+    env_file:
+      - ./auth_service/.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
