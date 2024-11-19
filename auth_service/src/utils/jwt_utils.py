@@ -32,8 +32,12 @@ def retrieve_token_data(token: str) -> TokenData:
             token, jwt_settings.SECRET_KEY, algorithms=[jwt_settings.ALGORITHM]
         )
         user_id: int = payload.get('sub')
+        company_id: int = payload.get('company_id')
+        is_admin: bool = payload.get('is_admin')
         if user_id is None:
             raise CredentialException
-        return TokenData(user_id=user_id)
+        return TokenData(
+            user_id=user_id, company_id=company_id, is_admin=is_admin
+        )
     except InvalidTokenError:
         raise CredentialException

@@ -95,11 +95,20 @@ class AuthService(BaseService):
             or not verify_password(password, account.secret.hashed_password)
         ):
             raise CredentialException
+        membership = await self.uow.member.get_by_query_one_or_none(
+            user_id=account.user.id
+        )
+        company_id = membership.company_id if membership else None
         access_token_expires = timedelta(
             minutes=jwt_settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
         access_token = create_access_token(
-            data={'sub': account.user.id}, expires_delta=access_token_expires
+            data={
+                'sub': account.user.id,
+                'company_id': company_id,
+                'is_admin': membership.is_admin,
+            },
+            expires_delta=access_token_expires,
         )
         return access_token
 

@@ -7,6 +7,6 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    account_id: int | None = None
     user_id: int | None = None
-    email: str | None = None
+    company_id: int | None = None
+    is_admin: bool = False
