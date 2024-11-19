@@ -6,6 +6,12 @@ from typing import Any
 from typing_extensions import Never
 
 from src.database import async_session_maker
+from src.repositories import (
+    StructAdmRepository,
+    PositionRepository,
+    StructAdmPositionRepository,
+    UserPositionRepository,
+)
 from src.utils.custom_types import AsyncFunc
 
 
@@ -42,6 +48,10 @@ class UnitOfWork(AbstractUnitOfWork):
 
     async def __aenter__(self) -> None:
         self.session = self.session_factory()
+        self.struct_adm = StructAdmRepository(self.session)
+        self.position = PositionRepository(self.session)
+        self.struct_adm_position = StructAdmPositionRepository(self.session)
+        self.user_position = UserPositionRepository(self.session)
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         if not exc_type:
