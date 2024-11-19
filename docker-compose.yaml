@@ -31,3 +31,34 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  company_structure_service:
+    restart: unless-stopped
+    build:
+      context: ./company_structure_service
+      dockerfile: ./Dockerfile
+    depends_on:
+      company_structure_db:
+        condition: service_healthy
+    command: sh -c "fastapi dev src/main.py  --host='0.0.0.0' --port=8001"
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./company_structure_service:/company_structure_service
+    env_file:
+      - ./company_structure_service/.env
+
+  company_structure_db:
+    restart: unless-stopped
+    image: postgres:latest
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./company_structure_service/pg-data:/var/lib/postgresql/data
+    env_file:
+      - ./company_structure_service/.env
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
