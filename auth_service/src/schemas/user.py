@@ -25,6 +25,10 @@ class UserResponse(BaseResponse):
     payload: UserWithAccounts
 
 
+class ListUserResponse(BaseResponse):
+    payload: list[UserWithAccounts]
+
+
 class CreateUserRequest(UserBase):
     password: str
 
