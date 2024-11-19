@@ -19,5 +19,14 @@ class JWTSettings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
 
+class SMTPSettings(BaseSettings):
+    PORT: int
+    SMTP_SERVER: str
+    LOGIN: str
+    PASSWORD: str
+    SENDER: str
+
+
 settings = Settings()
 jwt_settings = JWTSettings()
+smtp_settings = SMTPSettings()

@@ -9,7 +9,6 @@ from src.api.exceptions import (
     LastAccountException,
     InviteNotFoundException,
     AccountAlreadyExistsException,
-    NotEnoughRightsException,
 )
 from src.models import User, Account
 from src.utils.email_sender import send_email
@@ -21,6 +20,22 @@ from src.utils.unit_of_work import transaction_mode
 
 class UserService(BaseService):
     base_repository = 'user'
+
+    @transaction_mode
+    async def get_user(self, user_id: int, company_id: int):
+        user = await self.uow.user.get_user_with_company_and_accounts(
+            id=user_id, company_id=company_id
+        )
+        if not user:
+            raise UserDoesNotExistException
+        return user
+
+    @transaction_mode
+    async def list_users(self, company_id: int):
+        user = await self.uow.user.get_all_users_with_company_and_accounts(
+            company_id=company_id
+        )
+        return user
 
     @transaction_mode
     async def create_user(
@@ -37,20 +52,11 @@ class UserService(BaseService):
         self,
         email: str,
         user_id: int,
-        admin_company_id: int,
+        company_id: int,
         background_tasks: BackgroundTasks,
     ) -> None:
-        if not await self.uow.member.get_by_query_one_or_none(
-            user_id=user_id, company_id=admin_company_id
-        ):
-            raise UserDoesNotExistException
-        account = await self.uow.account.get_by_query_one_or_none(email=email)
-        if account:
-            raise AccountAlreadyExistsException
-        invite_token = generate_invite_token()
-        await self.uow.invite.add_one_and_get_obj(
-            email=email, invite_token=invite_token, user_id=user_id
-        )
+        await self._check_user_exists(user_id, company_id)
+        invite_token = await self._add_account(email, user_id)
         background_tasks.add_task(
             send_email,
             template_name='invitation.html',
@@ -62,41 +68,15 @@ class UserService(BaseService):
         )
 
     @transaction_mode
-    async def get_current_user(
-        self, token: Annotated[str, Depends(oauth2_scheme)]
-    ) -> User:
-        return await self._get_user_from_token(token)
-
-    @transaction_mode
-    async def get_current_admin(
-        self, token: Annotated[str, Depends(oauth2_scheme)]
-    ) -> User:
-        user = await self._get_user_from_token(token)
-        membership = await self.uow.member.get_by_query_one_or_none(
-            user_id=user.id, is_admin=True
-        )
-        if not membership:
-            raise CredentialException
-        return user
-
-    @transaction_mode
-    async def update(
-        self, user_id: int, admin_company_id: int | None = None, **kwargs
-    ) -> User:
-        if admin_company_id:
-            await self._check_admin_and_user_in_one_company(
-                user_id, admin_company_id
-            )
+    async def update(self, user_id: int, company_id: int, **kwargs) -> User:
+        await self._check_user_exists(user_id, company_id)
         return await self._update_user(user_id, **kwargs)
 
     @transaction_mode
     async def delete_email(
-        self, user_id: int, email: str, admin_company_id: int | None = None
+        self, user_id: int, email: str, company_id: int
     ) -> None:
-        if admin_company_id:
-            await self._check_admin_and_user_in_one_company(
-                user_id, admin_company_id
-            )
+        await self._check_user_exists(user_id, company_id)
         account = await self.uow.account.get_by_email_with_user_and_secret(
             email=email
         )
@@ -114,20 +94,11 @@ class UserService(BaseService):
         self,
         user_id: int,
         email: str,
+        company_id: int,
         background_tasks: BackgroundTasks,
-        admin_company_id: int | None = None,
     ) -> None:
-        if admin_company_id:
-            await self._check_admin_and_user_in_one_company(
-                user_id, admin_company_id
-            )
-        account = await self.uow.account.get_by_query_one_or_none(email=email)
-        if account:
-            raise AccountAlreadyExistsException
-        invite_token = generate_invite_token()
-        await self.uow.invite.add_one_and_get_obj(
-            email=email, invite_token=invite_token, user_id=user_id
-        )
+        await self._check_user_exists(user_id, company_id)
+        invite_token = await self._add_account(email, user_id)
         background_tasks.add_task(
             send_email,
             template_name='add_email.html',
@@ -159,10 +130,28 @@ class UserService(BaseService):
             hashed_password=secret.hashed_password,
         )
 
+    @transaction_mode
+    async def get_current_user(
+        self, token: Annotated[str, Depends(oauth2_scheme)]
+    ) -> User:
+        return await self._get_user_from_token(token)
+
+    @transaction_mode
+    async def get_current_admin(
+        self, token: Annotated[str, Depends(oauth2_scheme)]
+    ) -> User:
+        user = await self._get_user_from_token(token)
+        membership = await self.uow.member.get_by_query_one_or_none(
+            user_id=user.id, is_admin=True
+        )
+        if not membership:
+            raise CredentialException
+        return user
+
     async def _get_user_from_token(self, token: str) -> User:
         token_data = retrieve_token_data(token)
         user = await self.uow.user.get_user_with_company_and_accounts(
-            id=token_data.user_id
+            id=token_data.user_id,
         )
         if not user:
             raise CredentialException
@@ -174,10 +163,20 @@ class UserService(BaseService):
             **kwargs,
         )
 
-    async def _check_admin_and_user_in_one_company(
-        self, admin_company_id: int, user_id: int
-    ) -> None:
-        if not await self.uow.member.get_by_query_one_or_none(
-            user_id=user_id, company_id=admin_company_id
-        ):
-            raise NotEnoughRightsException
+    async def _check_user_exists(self, user_id: int, company_id: int) -> User:
+        user = await self.uow.user.get_user_with_company_and_accounts(
+            id=user_id, company_id=company_id
+        )
+        if not user:
+            raise UserDoesNotExistException
+        return user
+
+    async def _add_account(self, email: str, user_id: int) -> str:
+        account = await self.uow.account.get_by_query_one_or_none(email=email)
+        if account:
+            raise AccountAlreadyExistsException
+        invite_token = generate_invite_token()
+        await self.uow.invite.add_one_and_get_obj(
+            email=email, invite_token=invite_token, user_id=user_id
+        )
+        return invite_token

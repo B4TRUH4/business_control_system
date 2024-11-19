@@ -3,10 +3,9 @@ from fastapi.exceptions import RequestValidationError
 from starlette import status
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
-from src.api.exceptions import (
-    ServiceException,
-)
+from src.api.exceptions import ServiceException
 from src.config import settings
 from src.metadata import TITLE, DESCRIPTION, VERSION, TAG_METADATA
 from src.api import router
@@ -31,6 +30,18 @@ def create_fastapi_app() -> FastAPI:
             openapi_tags=TAG_METADATA,
         )
     fastapi_app.include_router(router, prefix='/api')
+    origins = [
+        'http://localhost:8001',
+        'http://company_structure_service:8001',
+    ]
+
+    fastapi_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=['*'],
+        allow_headers=['*'],
+    )
     return fastapi_app
 
 

@@ -13,6 +13,8 @@ from src.schemas.user import (
     UpdateUserRequest,
     UserWithAccounts,
     CreateUserResponse,
+    UserResponse,
+    ListUserResponse,
 )
 
 router = APIRouter(prefix='/users')
@@ -49,7 +51,9 @@ async def update_users_me(
     service: Annotated[UserService, Depends()],
 ) -> CreateUserResponse:
     user = await service.update(
-        user_id=user.id, **user_info.model_dump(exclude_none=True)
+        user_id=user.id,
+        company_id=user.company.id,
+        **user_info.model_dump(exclude_none=True),
     )
     return CreateUserResponse(
         payload=UserWithAccounts(
@@ -77,6 +81,7 @@ async def add_email_me(
     await service.add_email(
         user_id=user.id,
         email=email,
+        company_id=user.company.id,
         background_tasks=background_tasks,
     )
     return BaseResponse()
@@ -92,8 +97,35 @@ async def delete_email_me(
     user: Annotated[UserService().get_current_user, Depends()],
     service: Annotated[UserService, Depends()],
 ) -> BaseResponse:
-    await service.delete_email(user_id=user.id, email=email)
+    await service.delete_email(
+        user_id=user.id, email=email, company_id=user.company.id
+    )
     return BaseResponse()
+
+
+@router.get(
+    '',
+    response_model=ListUserResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def list_users(
+    user: Annotated[User, Depends(UserService().get_current_user)],
+    service: Annotated[UserService, Depends()],
+) -> ListUserResponse:
+    users = await service.list_users(company_id=user.company.id)
+    return ListUserResponse(
+        payload=[
+            UserWithAccounts(
+                id=user.id,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                accounts=[
+                    account.to_pydantic_schema() for account in user.accounts
+                ],
+            )
+            for user in users
+        ]
+    )
 
 
 @router.post(
@@ -136,10 +168,33 @@ async def invite(
     await service.invite_user(
         email=email,
         user_id=user_id,
-        admin_company_id=admin_user.company.id,
+        company_id=admin_user.company.id,
         background_tasks=background_tasks,
     )
     return BaseResponse()
+
+
+@router.get(
+    '/{user_id}',
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def get_user(
+    user_id: int,
+    user: Annotated[UserService().get_current_user, Depends()],
+    service: Annotated[UserService, Depends()],
+) -> CreateUserResponse:
+    user = await service.get_user(user_id=user_id, company_id=user.company.id)
+    return UserResponse(
+        payload=UserWithAccounts(
+            id=user.id,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            accounts=[
+                account.to_pydantic_schema() for account in user.accounts
+            ],
+        )
+    )
 
 
 @router.put(
@@ -155,7 +210,7 @@ async def update_user(
 ) -> CreateUserResponse:
     user = await service.update(
         user_id=user_id,
-        admin_company_id=admin_user.company.id,
+        company_id=admin_user.company.id,
         **user_info.model_dump(exclude_none=True),
     )
     return CreateUserResponse(
@@ -182,7 +237,7 @@ async def delete_email(
     service: Annotated[UserService, Depends()],
 ) -> BaseResponse:
     await service.delete_email(
-        user_id=user_id, email=email, admin_company_id=admin_user.company.id
+        user_id=user_id, email=email, company_id=admin_user.company.id
     )
     return BaseResponse()
 
@@ -203,7 +258,7 @@ async def add_email(
         user_id=user_id,
         email=email,
         background_tasks=background_tasks,
-        admin_company_id=admin_user.company.id,
+        company_id=admin_user.company.id,
     )
     return BaseResponse()
 
