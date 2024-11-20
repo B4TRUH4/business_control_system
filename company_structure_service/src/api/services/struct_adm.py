@@ -5,7 +5,7 @@ from src.api.exceptions import (
     PositionDoesNotExistsException,
     StructAdmAlreadyExistsException,
 )
-from src.models import StructAdm
+from src.models import StructAdm, Position
 from src.utils.service import BaseService
 from src.utils.unit_of_work import transaction_mode
 
@@ -65,17 +65,21 @@ class StructAdmService(BaseService):
         )
 
     @transaction_mode
-    async def get_struct_adm(self, struct_adm_id: int, company_id: int):
+    async def get_struct_adm(
+        self, struct_adm_id: int, company_id: int
+    ) -> StructAdm:
         return await self._get_struct_adm_with_positions(
             id=struct_adm_id, company_id=company_id
         )
 
     @transaction_mode
-    async def delete_struct_adm(self, struct_adm_id: int, company_id: int):
+    async def delete_struct_adm(
+        self, struct_adm_id: int, company_id: int
+    ) -> None:
         await self._get_struct_adm(id=struct_adm_id, company_id=company_id)
         await self.uow.struct_adm.delete_by_query(id=struct_adm_id)
 
-    async def _get_struct_adm_with_positions(self, **kwargs):
+    async def _get_struct_adm_with_positions(self, **kwargs) -> StructAdm:
         struct_adm = (
             await self.uow.struct_adm.get_by_query_one_or_none_with_positions(
                 **kwargs
@@ -85,7 +89,7 @@ class StructAdmService(BaseService):
             raise StructAdmDoesNotExistsException
         return struct_adm
 
-    async def _get_struct_adm(self, **kwargs):
+    async def _get_struct_adm(self, **kwargs) -> StructAdm:
         struct_adm = await self.uow.struct_adm.get_by_query_one_or_none(
             **kwargs
         )
@@ -93,7 +97,9 @@ class StructAdmService(BaseService):
             raise StructAdmDoesNotExistsException
         return struct_adm
 
-    async def _create_struct_adm(self, name: str, company_id: int, **kwargs):
+    async def _create_struct_adm(
+        self, name: str, company_id: int, **kwargs
+    ) -> int:
         struct_adm = await self.uow.struct_adm.get_by_query_one_or_none(
             name=name,
             company_id=company_id,
@@ -104,7 +110,9 @@ class StructAdmService(BaseService):
             name=name, company_id=company_id
         )
 
-    async def _check_position_exists(self, position_id: int, company_id: int):
+    async def _check_position_exists(
+        self, position_id: int, company_id: int
+    ) -> Position:
         manager_position = await self.uow.position.get_by_query_one_or_none(
             id=position_id, company_id=company_id
         )
@@ -120,7 +128,7 @@ class StructAdmService(BaseService):
         parent_id: int = None,
         manager_position_ids: list[int] = None,
         employee_position_ids: list[int] = None,
-    ):
+    ) -> StructAdm:
         if parent_id:
             parent = await self._get_struct_adm(
                 id=parent_id, company_id=company_id

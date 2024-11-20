@@ -116,7 +116,7 @@ class AuthService(BaseService):
     async def check_account(self, email: str) -> None:
         await self._check_account_is_free(email=email)
 
-    async def _check_account_is_free(self, **kwargs):
+    async def _check_account_is_free(self, **kwargs) -> None:
         account = await self.uow.account.get_by_query_one_or_none(**kwargs)
         if account:
             raise AccountAlreadyExistsException
