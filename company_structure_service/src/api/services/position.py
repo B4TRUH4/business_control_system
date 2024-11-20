@@ -5,6 +5,7 @@ from src.api.exceptions import (
     PositionAlreadyExistsException,
 )
 from src.api.services.user import UserService
+from src.models import Position
 from src.schemas.position import PositionWithUsers
 from src.utils.service import BaseService
 from src.utils.unit_of_work import transaction_mode
@@ -108,7 +109,9 @@ class PositionService(BaseService):
         )
         return position.to_pydantic_schema(users=users)
 
-    async def _get_position(self, position_id: int, company_id: int, **kwargs):
+    async def _get_position(
+        self, position_id: int, company_id: int, **kwargs
+    ) -> Position:
         position = (
             await self.uow.position.get_by_query_one_or_none_with_user_position(
                 id=position_id,
@@ -120,7 +123,9 @@ class PositionService(BaseService):
             raise PositionDoesNotExistsException
         return position
 
-    async def _create_position(self, name: str, company_id: int, **kwargs):
+    async def _create_position(
+        self, name: str, company_id: int, **kwargs
+    ) -> int:
         position = await self.uow.position.get_by_query_one_or_none(
             name=name, company_id=company_id
         )

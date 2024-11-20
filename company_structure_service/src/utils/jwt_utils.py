@@ -31,11 +31,15 @@ def retrieve_token_data(token: str) -> TokenData:
         raise CredentialException
 
 
-def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+def get_current_user(
+    token: Annotated[str, Depends(oauth2_scheme)],
+) -> TokenData:
     return _get_user_from_token(token)
 
 
-def get_current_admin(token: Annotated[str, Depends(oauth2_scheme)]):
+def get_current_admin(
+    token: Annotated[str, Depends(oauth2_scheme)],
+) -> TokenData:
     user = get_current_user(token)
     if not user.is_admin:
         raise CredentialException

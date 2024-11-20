@@ -14,7 +14,7 @@ router = APIRouter(prefix='/invites')
 async def get_invite(
     invite: Annotated[BaseInvite, Depends()],
     service: Annotated[InviteService, Depends()],
-):
+) -> InviteResponse:
     invite = await service.get_by_query_one_or_none(**invite.model_dump())
     if not invite:
         raise InviteNotFoundException
